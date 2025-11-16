@@ -1,0 +1,17 @@
+# 1. 크롬 확장 프로그램 개발 관련
+node_modules
+dist/
+build/
+.env
+.env.*
+_metadata/
+coverage/
+
+# 2. macOS 시스템 파일
+.DS_Store
+.Trashes
+._*
+
+# 3. 에디터/IDE 관련
+.vscode/
+*~
