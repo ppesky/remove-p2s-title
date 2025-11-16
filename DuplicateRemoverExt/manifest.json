@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Duplicate Remover & Brand Auto Tagger",
+  "version": "1.0",
+  "description": "Remove duplicate words and auto-add brand tags based on rules.",
+  "permissions": ["storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["style.css"]
+    }
+  ]
+}
