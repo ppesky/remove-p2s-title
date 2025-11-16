@@ -292,30 +292,39 @@ function setInputValue(input, value) {
 }
 
 function runRemoveDuplicates(showMsg = true) {
-  const B = getInputB();
-  if (!B) {
-    console.log("Input B not found");
-    if (showMsg) showMessage("입력 필드를 찾을 수 없습니다");
-    return;
-  }
-  
-  const originalValue = B.value;
-  console.log("Original value:", originalValue);
-  console.log("Original value length:", originalValue.length);
-  
-  const newValue = removeDuplicateWords(originalValue);
-  console.log("New value:", newValue);
-  console.log("New value length:", newValue.length);
-  console.log("Values are equal:", originalValue === newValue);
-  
-  if (originalValue !== newValue) {
-    setInputValue(B, newValue);
-    console.log("Value changed:", originalValue, "->", newValue);
-    if (showMsg) showMessage("중복 제거 완료");
-  } else {
-    console.log("No duplicates found - original and new values are the same");
-    if (showMsg) showMessage("중복된 단어가 없습니다");
-  }
+  return new Promise((resolve) => {
+    const B = getInputB();
+    if (!B) {
+      console.log("Input B not found");
+      if (showMsg) showMessage("입력 필드를 찾을 수 없습니다");
+      resolve();
+      return;
+    }
+    
+    const originalValue = B.value;
+    console.log("Original value:", originalValue);
+    console.log("Original value length:", originalValue.length);
+    
+    const newValue = removeDuplicateWords(originalValue);
+    console.log("New value:", newValue);
+    console.log("New value length:", newValue.length);
+    console.log("Values are equal:", originalValue === newValue);
+    
+    if (originalValue !== newValue) {
+      setInputValue(B, newValue);
+      console.log("Value changed:", originalValue, "->", newValue);
+      if (showMsg) showMessage("중복 제거 완료");
+      
+      // React가 상태를 업데이트할 시간을 주기 위해 약간의 지연
+      setTimeout(() => {
+        resolve();
+      }, 300);
+    } else {
+      console.log("No duplicates found - original and new values are the same");
+      if (showMsg) showMessage("중복된 단어가 없습니다");
+      resolve();
+    }
+  });
 }
 
 function runBrandTag(showMsg = true) {
@@ -323,8 +332,9 @@ function runBrandTag(showMsg = true) {
   if (showMsg) showMessage("실행했습니다");
 }
 
-function runAll() {
-  runRemoveDuplicates(false);
+async function runAll() {
+  // 중복제거가 완료된 후 비브랜드태그 실행
+  await runRemoveDuplicates(false);
   autoBrandTag();
   showMessage("실행했습니다");
 }
