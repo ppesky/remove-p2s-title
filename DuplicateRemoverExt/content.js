@@ -204,6 +204,14 @@ function showMessage(text) {
 function setInputValue(input, value) {
   if (!input) return false;
   
+  // 현재 포커스 상태 저장
+  const wasFocused = document.activeElement === input;
+  
+  // React를 위한 실제 focus/blur 시뮬레이션
+  if (!wasFocused) {
+    input.focus();
+  }
+  
   // React나 다른 프레임워크를 위한 이벤트 발생
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
     window.HTMLInputElement.prototype, 
@@ -216,9 +224,69 @@ function setInputValue(input, value) {
     input.value = value;
   }
   
-  // input 이벤트 발생 (React, Vue 등이 감지할 수 있도록)
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  input.dispatchEvent(new Event('change', { bubbles: true }));
+  // React를 위한 더 구체적인 이벤트 발생
+  // InputEvent 사용 (React가 더 잘 감지함)
+  const inputEvent = new InputEvent('input', {
+    bubbles: true,
+    cancelable: true,
+    data: value,
+    inputType: 'insertText'
+  });
+  input.dispatchEvent(inputEvent);
+  
+  // ChangeEvent
+  const changeEvent = new Event('change', { bubbles: true, cancelable: true });
+  input.dispatchEvent(changeEvent);
+  
+  // React의 synthetic event를 위한 추가 이벤트
+  input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+  
+  // 실제 blur 호출 (React가 blur 이벤트를 감지하도록)
+  if (!wasFocused) {
+    input.blur();
+  } else {
+    // 이미 포커스가 있었다면 blur 이벤트만 발생
+    const blurEvent = new FocusEvent('blur', { bubbles: true, cancelable: true });
+    input.dispatchEvent(blurEvent);
+  }
+  
+  // React의 onChange 핸들러를 직접 찾아서 호출 시도
+  const reactInternalKey = Object.keys(input).find(key => 
+    key.startsWith('__reactInternalInstance') || key.startsWith('__reactFiber')
+  );
+  
+  if (reactInternalKey) {
+    const reactInternal = input[reactInternalKey];
+    if (reactInternal) {
+      // React의 props에서 onChange 찾기
+      let fiber = reactInternal;
+      while (fiber) {
+        if (fiber.memoizedProps && fiber.memoizedProps.onChange) {
+          const syntheticEvent = {
+            target: input,
+            currentTarget: input,
+            bubbles: true,
+            cancelable: true,
+            defaultPrevented: false,
+            eventPhase: 3,
+            isTrusted: false,
+            nativeEvent: inputEvent,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            type: 'change'
+          };
+          try {
+            fiber.memoizedProps.onChange(syntheticEvent);
+          } catch (e) {
+            console.log('React onChange call failed:', e);
+          }
+          break;
+        }
+        fiber = fiber.return;
+      }
+    }
+  }
   
   return true;
 }
