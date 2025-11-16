@@ -274,11 +274,72 @@ function createFloatingUI() {
   `;
   document.body.appendChild(box);
 
+  // 화면 경계 내에 위치 제한하는 함수
+  function constrainPosition(x, y) {
+    const boxRect = box.getBoundingClientRect();
+    const maxX = window.innerWidth - boxRect.width;
+    const maxY = window.innerHeight - boxRect.height;
+    
+    x = Math.max(0, Math.min(x, maxX));
+    y = Math.max(0, Math.min(y, maxY));
+    
+    return { x, y };
+  }
+
+  // 위치가 화면 내에 있는지 확인 (간단한 범위 체크)
+  function isValidPosition(left, top) {
+    try {
+      const leftNum = parseInt(left);
+      const topNum = parseInt(top);
+      
+      if (isNaN(leftNum) || isNaN(topNum)) return false;
+      
+      // 기본적인 범위 체크 (음수이거나 너무 큰 값은 제외)
+      // 실제 화면 크기는 나중에 constrainPosition에서 처리
+      return leftNum >= -1000 && leftNum <= window.innerWidth + 1000 &&
+             topNum >= -1000 && topNum <= window.innerHeight + 1000;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 위치 리셋 함수
+  function resetPosition() {
+    box.style.left = "50%";
+    box.style.top = "20px";
+    box.style.transform = "translateX(-50%)";
+    chrome.storage.sync.remove("floatPos");
+    showMessage("위치가 초기화되었습니다");
+  }
+
   // Load saved position
   chrome.storage.sync.get("floatPos", res => {
-      if (res.floatPos) {
-          box.style.left = res.floatPos.left;
-          box.style.top = res.floatPos.top;
+      if (res.floatPos && res.floatPos.left && res.floatPos.top) {
+          // 저장된 위치가 유효한지 확인
+          if (isValidPosition(res.floatPos.left, res.floatPos.top)) {
+              box.style.left = res.floatPos.left;
+              box.style.top = res.floatPos.top;
+              box.style.transform = "none";
+              
+              // 위치를 설정한 후 화면 경계 내에 있는지 확인하고 조정
+              setTimeout(() => {
+                  const boxRect = box.getBoundingClientRect();
+                  const currentX = parseInt(box.style.left) || 0;
+                  const currentY = parseInt(box.style.top) || 0;
+                  const constrained = constrainPosition(currentX, currentY);
+                  
+                  if (constrained.x !== currentX || constrained.y !== currentY) {
+                      box.style.left = `${constrained.x}px`;
+                      box.style.top = `${constrained.y}px`;
+                  }
+              }, 100);
+          } else {
+              // 유효하지 않으면 기본 위치로
+              resetPosition();
+          }
+      } else {
+          // 저장된 위치가 없으면 기본 위치
+          resetPosition();
       }
   });
 
@@ -293,22 +354,41 @@ function createFloatingUI() {
       isDown = true;
       offsetX = e.offsetX;
       offsetY = e.offsetY;
+      box.style.transform = "none"; // 드래그 시작 시 transform 제거
       e.preventDefault();
   });
 
   document.addEventListener("mousemove", e => {
       if (!isDown) return;
-      box.style.left = `${e.pageX - offsetX}px`;
-      box.style.top = `${e.pageY - offsetY}px`;
+      
+      let newX = e.pageX - offsetX;
+      let newY = e.pageY - offsetY;
+      
+      // 화면 경계 내에 제한
+      const constrained = constrainPosition(newX, newY);
+      newX = constrained.x;
+      newY = constrained.y;
+      
+      box.style.left = `${newX}px`;
+      box.style.top = `${newY}px`;
   });
 
   document.addEventListener("mouseup", () => {
       if (!isDown) return;
       isDown = false;
 
+      // 현재 위치 저장
+      const left = box.style.left;
+      const top = box.style.top;
       chrome.storage.sync.set({
-          floatPos: { left: box.style.left, top: box.style.top }
+          floatPos: { left, top }
       });
+  });
+
+  // 더블클릭으로 위치 리셋
+  box.addEventListener("dblclick", (e) => {
+      if (e.target.tagName === "BUTTON") return;
+      resetPosition();
   });
 
   // Button actions - 이벤트 위임 사용
