@@ -291,40 +291,48 @@ function setInputValue(input, value) {
   return true;
 }
 
-function runRemoveDuplicates(showMsg = true) {
-  return new Promise((resolve) => {
-    const B = getInputB();
-    if (!B) {
-      console.log("Input B not found");
-      if (showMsg) showMessage("입력 필드를 찾을 수 없습니다");
-      resolve();
+const DUP_REMOVE_MAX_ITER = 10;
+
+function delay(ms = 200) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runRemoveDuplicates(showMsg = true) {
+  const B = getInputB();
+  if (!B) {
+    console.log("Input B not found");
+    if (showMsg) showMessage("입력 필드를 찾을 수 없습니다");
+    return;
+  }
+
+  let iteration = 0;
+  let changedAtLeastOnce = false;
+
+  while (iteration < DUP_REMOVE_MAX_ITER) {
+    iteration++;
+    const originalValue = B.value;
+    const newValue = removeDuplicateWords(originalValue);
+
+    console.log(`[DupRemove][${iteration}] original:`, originalValue);
+    console.log(`[DupRemove][${iteration}] new:`, newValue);
+
+    if (originalValue === newValue) {
+      console.log(`[DupRemove] No more duplicates after ${iteration - 1} iterations`);
+      if (showMsg) {
+        showMessage(changedAtLeastOnce ? "모든 중복 제거 완료" : "중복된 단어가 없습니다");
+      }
       return;
     }
-    
-    const originalValue = B.value;
-    console.log("Original value:", originalValue);
-    console.log("Original value length:", originalValue.length);
-    
-    const newValue = removeDuplicateWords(originalValue);
-    console.log("New value:", newValue);
-    console.log("New value length:", newValue.length);
-    console.log("Values are equal:", originalValue === newValue);
-    
-    if (originalValue !== newValue) {
-      setInputValue(B, newValue);
-      console.log("Value changed:", originalValue, "->", newValue);
-      if (showMsg) showMessage("중복 제거 완료");
-      
-      // React가 상태를 업데이트할 시간을 주기 위해 약간의 지연
-      setTimeout(() => {
-        resolve();
-      }, 300);
-    } else {
-      console.log("No duplicates found - original and new values are the same");
-      if (showMsg) showMessage("중복된 단어가 없습니다");
-      resolve();
-    }
-  });
+
+    changedAtLeastOnce = true;
+    setInputValue(B, newValue);
+
+    // React 상태 업데이트 대기
+    await delay(250);
+  }
+
+  console.log("[DupRemove] Max iteration reached. There may still be duplicates.");
+  if (showMsg) showMessage("중복 제거 완료 (최대 반복)");
 }
 
 function runBrandTag(showMsg = true) {
