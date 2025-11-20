@@ -52,7 +52,7 @@ function getInputB() {
 
 // C: 3번째 INPUT with same class as B (index 2)
 function getInputC() {
-  const allInputs = [...document.querySelectorAll("input.sc-cqnWLZ.hMxkNV")];
+  const allInputs = [...document.querySelectorAll("input.sc-dIGTRn.iItIMS")];
   // 총 4개가 있다고 했으므로, 3번째는 index 2
   if (allInputs.length >= 3) {
     return allInputs[2]; // 0-based index이므로 2가 3번째

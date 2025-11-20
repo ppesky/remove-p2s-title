@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Duplicate Remover & Brand Auto Tagger",
+  "name": "Pick2Sell Product Title Customizer",
   "version": "1.3",
-  "description": "Remove duplicate words and auto-add brand tags based on rules.",
+  "description": "Remove duplicate words and auto-add brand tags based on rules for Pick2Sell product title customization.",
   "permissions": ["storage"],
   "background": {
     "service_worker": "background.js"
