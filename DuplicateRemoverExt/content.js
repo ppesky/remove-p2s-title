@@ -2,8 +2,9 @@
 // Load config from storage
 // ----------------------------
 let config = {
-  urlPatterns: ["https://www.pick2sell.kr/product/*?tab=basicInfo"],
-  dictionary: [] // 사용자 커스텀 단어 (선택)
+  urlPatterns: ["https://www.pick2sell.kr/product/*"],
+  dictionary: [], // 사용자 커스텀 단어 (선택)
+  inputCSelector: "input.sc-iwXCoF.cCqSXw" // Input C 선택자
 };
 
 // URL 패턴 매칭
@@ -16,9 +17,10 @@ function urlMatch() {
 
 // 설정 로드 및 초기화
 function initExtension() {
-  chrome.storage.sync.get(["urlPatterns", "dictionary"], (res) => {
+  chrome.storage.sync.get(["urlPatterns", "dictionary", "inputCSelector"], (res) => {
     if (res.urlPatterns) config.urlPatterns = res.urlPatterns;
     if (res.dictionary) config.dictionary = res.dictionary;
+    if (res.inputCSelector) config.inputCSelector = res.inputCSelector;
 
     if (!urlMatch()) {
       console.log("URL not matched. Extension inactive.");
@@ -52,7 +54,7 @@ function getInputB() {
 
 // C: 3번째 INPUT with same class as B (index 2)
 function getInputC() {
-  const allInputs = [...document.querySelectorAll("input.sc-dIGTRn.iItIMS")];
+  const allInputs = [...document.querySelectorAll(config.inputCSelector)];
   // 총 4개가 있다고 했으므로, 3번째는 index 2
   if (allInputs.length >= 3) {
     return allInputs[2]; // 0-based index이므로 2가 3번째
