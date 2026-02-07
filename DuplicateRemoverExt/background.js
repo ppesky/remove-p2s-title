@@ -5,7 +5,7 @@ chrome.runtime.onInstalled.addListener(() => {
       chrome.storage.sync.set({
         urlPatterns: ["https://www.pick2sell.kr/product/*"],
         dictionary: [],
-        inputCSelector: "input.sc-iwXCoF.cCqSXw"
+        inputCSelector: "input.sc-iafpwu.UboKk"
       });
     }
   });

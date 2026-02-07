@@ -4,7 +4,7 @@
 let config = {
   urlPatterns: ["https://www.pick2sell.kr/product/*"],
   dictionary: [], // 사용자 커스텀 단어 (선택)
-  inputCSelector: "input.sc-iwXCoF.cCqSXw" // Input C 선택자
+  inputCSelector: "input.sc-iafpwu.UboKk" // Input C 선택자
 };
 
 // URL 패턴 매칭
@@ -342,10 +342,22 @@ function runBrandTag(showMsg = true) {
   if (showMsg) showMessage("실행했습니다");
 }
 
+// 대표 썸네일 추천 버튼 클릭
+function runSelectMainImage(showMsg = true) {
+  const btn = document.querySelector('button[data-testid="select-main-image-button"]');
+  if (!btn) {
+    if (showMsg) showMessage("대표 썸네일 버튼을 찾을 수 없습니다");
+    return;
+  }
+  btn.click();
+  if (showMsg) showMessage("대표 썸네일 추천 실행했습니다");
+}
+
 async function runAll() {
-  // 중복제거가 완료된 후 비브랜드태그 실행
+  // 중복제거 → 비브랜드태그 → 대표 썸네일 추천
   await runRemoveDuplicates(false);
   autoBrandTag();
+  runSelectMainImage(false);
   showMessage("실행했습니다");
 }
 
@@ -357,8 +369,9 @@ function createFloatingUI() {
   box.id = "floatingToolBox";
   box.innerHTML = `
       <button id="btnRemove">중복제거</button>
-      <button id="btnBrand">비브랜드태그</button>
-      <button id="btnAll">전체실행</button>
+      <button id="btnBrand">비브랜드</button>
+      <button id="btnThumb">대표썸</button>
+      <button id="btnAll">전체</button>
   `;
   document.body.appendChild(box);
 
@@ -492,6 +505,8 @@ function createFloatingUI() {
           runRemoveDuplicates();
       } else if (btnId === "btnBrand") {
           runBrandTag();
+      } else if (btnId === "btnThumb") {
+          runSelectMainImage();
       } else if (btnId === "btnAll") {
           runAll();
       }
