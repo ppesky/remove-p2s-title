@@ -4,7 +4,8 @@
 let config = {
   urlPatterns: ["https://www.pick2sell.kr/product/*"],
   dictionary: [], // 사용자 커스텀 단어 (선택)
-  inputCSelector: "input.sc-iafpwu.UboKk" // Input C 선택자
+  inputCSelector: "input.sc-iafpwu.UboKk", // Input C 선택자
+  completeDelayMs: 400 // 완료 버튼 클릭 후 뒤로가기까지 지연(ms)
 };
 
 // URL 패턴 매칭
@@ -17,10 +18,11 @@ function urlMatch() {
 
 // 설정 로드 및 초기화
 function initExtension() {
-  chrome.storage.sync.get(["urlPatterns", "dictionary", "inputCSelector"], (res) => {
+  chrome.storage.sync.get(["urlPatterns", "dictionary", "inputCSelector", "completeDelayMs"], (res) => {
     if (res.urlPatterns) config.urlPatterns = res.urlPatterns;
     if (res.dictionary) config.dictionary = res.dictionary;
     if (res.inputCSelector) config.inputCSelector = res.inputCSelector;
+    if (res.completeDelayMs != null) config.completeDelayMs = res.completeDelayMs;
 
     if (!urlMatch()) {
       console.log("URL not matched. Extension inactive.");
@@ -361,6 +363,30 @@ async function runAll() {
   showMessage("실행했습니다");
 }
 
+// 완료: 수정완료 체크 후 뒤로가기 버튼 클릭
+async function runComplete(showMsg = true) {
+  const checkbox = document.getElementById("isEditedCompleted");
+  if (!checkbox) {
+    if (showMsg) showMessage("수정완료 체크박스를 찾을 수 없습니다");
+    return;
+  }
+  if (checkbox.checked) {
+    if (showMsg) showMessage("이미 완료 처리되었습니다");
+    return;
+  }
+  // React가 인식하도록 네이티브 클릭으로 체크
+  checkbox.click();
+  // React 처리 대기 후 뒤로가기 버튼 클릭
+  await delay(config.completeDelayMs);
+  const backBtn = document.querySelector("button.sc-bxcGCR.eLcqmC");
+  if (!backBtn) {
+    if (showMsg) showMessage("뒤로가기 버튼을 찾을 수 없습니다");
+    return;
+  }
+  backBtn.click();
+  if (showMsg) showMessage("완료 처리했습니다");
+}
+
 // ----------------------------
 // Floating UI
 // ----------------------------
@@ -372,6 +398,8 @@ function createFloatingUI() {
       <button id="btnBrand">비브랜드</button>
       <button id="btnThumb">대표썸</button>
       <button id="btnAll">전체</button>
+      <span class="float-pipe">|</span>
+      <button id="btnComplete">완료</button>
   `;
   document.body.appendChild(box);
 
@@ -448,8 +476,8 @@ function createFloatingUI() {
   let isDown = false, offsetX, offsetY;
 
   box.addEventListener("mousedown", e => {
-      // 버튼 클릭 시에는 드래그 시작하지 않음
-      if (e.target.tagName === "BUTTON") {
+      // 버튼·파이프 클릭 시에는 드래그 시작하지 않음
+      if (e.target.tagName === "BUTTON" || e.target.classList.contains("float-pipe")) {
           return;
       }
       isDown = true;
@@ -509,6 +537,8 @@ function createFloatingUI() {
           runSelectMainImage();
       } else if (btnId === "btnAll") {
           runAll();
+      } else if (btnId === "btnComplete") {
+          runComplete();
       }
   });
 }

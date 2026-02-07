@@ -21,3 +21,12 @@
   cursor: pointer;
   font-size: 12px;
 }
+
+#floatingToolBox .float-pipe {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 2px;
+  color: #666;
+  font-size: 12px;
+  cursor: default;
+}
