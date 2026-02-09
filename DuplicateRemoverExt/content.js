@@ -367,17 +367,19 @@ async function runAll() {
 async function runComplete(showMsg = true) {
   const checkbox = document.getElementById("isEditedCompleted");
   if (!checkbox) {
-    if (showMsg) showMessage("수정완료 체크박스를 찾을 수 없습니다");
+    if (showMsg) showMessage("편집완료 체크박스를 찾을 수 없습니다");
     return;
   }
   if (checkbox.checked) {
-    if (showMsg) showMessage("이미 완료 처리되었습니다");
-    return;
+    if (showMsg) showMessage("이미 편집완료 처리되어 있습니다");
+    // return;
+  } else {
+    checkbox.click();
+    // React가 인식하도록 네이티브 클릭으로 체크
+    checkbox.click();
+    // React 처리 대기 후 뒤로가기 버튼 클릭
+    await delay(config.completeDelayMs);
   }
-  // React가 인식하도록 네이티브 클릭으로 체크
-  checkbox.click();
-  // React 처리 대기 후 뒤로가기 버튼 클릭
-  await delay(config.completeDelayMs);
   const backBtn = document.querySelector("button.sc-bxcGCR.eLcqmC");
   if (!backBtn) {
     if (showMsg) showMessage("뒤로가기 버튼을 찾을 수 없습니다");
