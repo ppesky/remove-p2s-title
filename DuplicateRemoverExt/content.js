@@ -5,7 +5,8 @@ let config = {
   urlPatterns: ["https://www.pick2sell.kr/product/*"],
   dictionary: [], // 사용자 커스텀 단어 (선택)
   inputCSelector: "input.sc-iafpwu.UboKk", // Input C 선택자
-  completeDelayMs: 400 // 완료 버튼 클릭 후 뒤로가기까지 지연(ms)
+  completeDelayMs: 400, // 완료 버튼 클릭 후 뒤로가기까지 지연(ms)
+  backBtnSelector: "button.sc-bxcGCR.eLcqmC" // 완료 후 뒤로가기 버튼 선택자
 };
 
 // URL 패턴 매칭
@@ -18,24 +19,28 @@ function urlMatch() {
 
 // 설정 로드 및 초기화
 function initExtension() {
-  chrome.storage.sync.get(["urlPatterns", "dictionary", "inputCSelector", "completeDelayMs"], (res) => {
-    if (res.urlPatterns) config.urlPatterns = res.urlPatterns;
-    if (res.dictionary) config.dictionary = res.dictionary;
-    if (res.inputCSelector) config.inputCSelector = res.inputCSelector;
-    if (res.completeDelayMs != null) config.completeDelayMs = res.completeDelayMs;
+  chrome.storage.sync.get(
+    ["urlPatterns", "dictionary", "inputCSelector", "completeDelayMs", "backBtnSelector"],
+    (res) => {
+      if (res.urlPatterns) config.urlPatterns = res.urlPatterns;
+      if (res.dictionary) config.dictionary = res.dictionary;
+      if (res.inputCSelector) config.inputCSelector = res.inputCSelector;
+      if (res.completeDelayMs != null) config.completeDelayMs = res.completeDelayMs;
+      if (res.backBtnSelector) config.backBtnSelector = res.backBtnSelector;
 
-    if (!urlMatch()) {
-      console.log("URL not matched. Extension inactive.");
-      return;
-    }
+      if (!urlMatch()) {
+        console.log("URL not matched. Extension inactive.");
+        return;
+      }
 
-    // DOM이 준비된 후 UI 생성
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", createFloatingUI);
-    } else {
-      createFloatingUI();
+      // DOM이 준비된 후 UI 생성
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", createFloatingUI);
+      } else {
+        createFloatingUI();
+      }
     }
-  });
+  );
 }
 
 initExtension();
@@ -374,13 +379,13 @@ async function runComplete(showMsg = true) {
     if (showMsg) showMessage("이미 편집완료 처리되어 있습니다");
     // return;
   } else {
+    // React가 인식하도록 네이티브 클릭으로 체크 (두 번 클릭이 필요한 케이스 고려)
     checkbox.click();
-    // React가 인식하도록 네이티브 클릭으로 체크
     checkbox.click();
     // React 처리 대기 후 뒤로가기 버튼 클릭
     await delay(config.completeDelayMs);
   }
-  const backBtn = document.querySelector("button.sc-bxcGCR.eLcqmC");
+  const backBtn = document.querySelector(config.backBtnSelector);
   if (!backBtn) {
     if (showMsg) showMessage("뒤로가기 버튼을 찾을 수 없습니다");
     return;

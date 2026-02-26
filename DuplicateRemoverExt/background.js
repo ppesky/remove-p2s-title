@@ -1,11 +1,12 @@
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.sync.get(["urlPatterns", "dictionary", "inputCSelector"], (res) => {
+  chrome.storage.sync.get(["urlPatterns", "dictionary", "inputCSelector", "backBtnSelector"], (res) => {
     // 초기 설정이 없을 때만 기본값 설정
     if (!res.urlPatterns) {
       chrome.storage.sync.set({
         urlPatterns: ["https://www.pick2sell.kr/product/*"],
         dictionary: [],
-        inputCSelector: "input.sc-iafpwu.UboKk"
+        inputCSelector: "input.sc-gtQWWF.jnMrys",
+        backBtnSelector: "button.sc-AWDzw.lgORyS"
       });
     }
   });
