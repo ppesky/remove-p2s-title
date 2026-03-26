@@ -1,21 +1,32 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const DEFAULTS = globalThis.P2S_DEFAULTS;
+  if (!DEFAULTS) {
+    console.error("P2S_DEFAULTS not found. Make sure defaults.js is loaded.");
+    return;
+  }
+
   chrome.storage.sync.get(
-    ["urlPatterns", "dictionary", "inputCSelector", "completeDelayMs", "backBtnSelector"],
+    ["urlPatterns", "dictionary", "inputBSelector", "inputCSelector", "completeDelayMs", "backBtnSelector"],
     (res) => {
       document.getElementById("urlPatterns").value =
-        (res.urlPatterns || []).join("\n");
+        (res.urlPatterns || DEFAULTS.urlPatterns).join("\n");
 
       document.getElementById("dictionary").value =
-        (res.dictionary || []).join("\n");
+        (res.dictionary || DEFAULTS.dictionary).join("\n");
 
-      document.getElementById("inputCSelector").value = res.inputCSelector || "";
+      document.getElementById("inputBSelector").value =
+        res.inputBSelector || DEFAULTS.inputBSelector;
+
+      document.getElementById("inputCSelector").value =
+        res.inputCSelector || DEFAULTS.inputCSelector;
 
       const delayEl = document.getElementById("completeDelayMs");
-      delayEl.value = res.completeDelayMs != null ? res.completeDelayMs : 400;
+      delayEl.value =
+        res.completeDelayMs != null ? res.completeDelayMs : DEFAULTS.completeDelayMs;
 
       const backBtnInput = document.getElementById("backBtnSelector");
       if (backBtnInput) {
-        backBtnInput.value = res.backBtnSelector || "";
+        backBtnInput.value = res.backBtnSelector || DEFAULTS.backBtnSelector;
       }
     }
   );
@@ -33,9 +44,13 @@ document.addEventListener("DOMContentLoaded", () => {
       .map(v => v.trim())
       .filter(v => v);
 
+    const inputBSelector = document
+      .getElementById("inputBSelector")
+      .value.trim() || DEFAULTS.inputBSelector;
+
     const inputCSelector = document
       .getElementById("inputCSelector")
-      .value.trim();
+      .value.trim() || DEFAULTS.inputCSelector;
 
     let completeDelayMs = parseInt(
       document.getElementById("completeDelayMs").value,
@@ -46,10 +61,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const backBtnSelector = document
       .getElementById("backBtnSelector")
-      .value.trim();
+      .value.trim() || DEFAULTS.backBtnSelector;
+
+    const safeUrlPatterns =
+      urlPatterns.length > 0 ? urlPatterns : DEFAULTS.urlPatterns;
 
     chrome.storage.sync.set(
-      { urlPatterns, dictionary, inputCSelector, completeDelayMs, backBtnSelector },
+      { urlPatterns: safeUrlPatterns, dictionary, inputBSelector, inputCSelector, completeDelayMs, backBtnSelector },
       () => {
         alert("저장되었습니다.");
       }

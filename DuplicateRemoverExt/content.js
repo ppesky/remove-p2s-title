@@ -1,13 +1,24 @@
 // ----------------------------
 // Load config from storage
 // ----------------------------
-let config = {
-  urlPatterns: ["https://www.pick2sell.kr/product/*"],
-  dictionary: [], // 사용자 커스텀 단어 (선택)
-  inputCSelector: "input.sc-iafpwu.UboKk", // Input C 선택자
-  completeDelayMs: 400, // 완료 버튼 클릭 후 뒤로가기까지 지연(ms)
-  backBtnSelector: "button.sc-bxcGCR.eLcqmC" // 완료 후 뒤로가기 버튼 선택자
-};
+const DEFAULTS = globalThis.P2S_DEFAULTS;
+let config = DEFAULTS
+  ? {
+      urlPatterns: DEFAULTS.urlPatterns,
+      dictionary: DEFAULTS.dictionary, // 사용자 커스텀 단어 (선택)
+      inputBSelector: DEFAULTS.inputBSelector, // 상품명 중복 제거 대상 Input 선택자
+      inputCSelector: DEFAULTS.inputCSelector, // Input C 선택자
+      completeDelayMs: DEFAULTS.completeDelayMs, // 완료 버튼 클릭 후 뒤로가기까지 지연(ms)
+      backBtnSelector: DEFAULTS.backBtnSelector, // 완료 후 뒤로가기 버튼 선택자
+    }
+  : {
+      urlPatterns: [],
+      dictionary: [],
+      inputBSelector: "",
+      inputCSelector: "",
+      completeDelayMs: 0,
+      backBtnSelector: "",
+    };
 
 // URL 패턴 매칭
 function urlMatch() {
@@ -20,10 +31,11 @@ function urlMatch() {
 // 설정 로드 및 초기화
 function initExtension() {
   chrome.storage.sync.get(
-    ["urlPatterns", "dictionary", "inputCSelector", "completeDelayMs", "backBtnSelector"],
+    ["urlPatterns", "dictionary", "inputBSelector", "inputCSelector", "completeDelayMs", "backBtnSelector"],
     (res) => {
       if (res.urlPatterns) config.urlPatterns = res.urlPatterns;
       if (res.dictionary) config.dictionary = res.dictionary;
+      if (res.inputBSelector) config.inputBSelector = res.inputBSelector;
       if (res.inputCSelector) config.inputCSelector = res.inputCSelector;
       if (res.completeDelayMs != null) config.completeDelayMs = res.completeDelayMs;
       if (res.backBtnSelector) config.backBtnSelector = res.backBtnSelector;
@@ -54,18 +66,118 @@ function getInputA() {
   return document.querySelector("div.typo-text-md-medium");
 }
 
-// B: product-name-input
-function getInputB() {
-  return document.querySelector('input[data-testid="product-name-input"]');
+function resolveInputLikeElement(el) {
+  if (!el) return null;
+
+  const tag = (el.tagName || "").toLowerCase();
+  const isDirectInput = tag === "input" || tag === "textarea";
+  if (isDirectInput) return el;
+
+  const isContentEditable =
+    !!el.isContentEditable || String(el.getAttribute?.("contenteditable") || "").toLowerCase() === "true";
+  if (isContentEditable) return el;
+
+  // Selector가 container일 때, 내부의 실제 input/textarea를 찾는다.
+  const inner = el.querySelector("input, textarea");
+  return inner || null;
 }
 
-// C: 3번째 INPUT with same class as B (index 2)
-function getInputC() {
-  const allInputs = [...document.querySelectorAll(config.inputCSelector)];
-  // 총 4개가 있다고 했으므로, 3번째는 index 2
-  if (allInputs.length >= 3) {
-    return allInputs[2]; // 0-based index이므로 2가 3번째
+function getInputElementText(el) {
+  if (!el) return "";
+  // HTMLInputElement/HTMLTextAreaElement
+  if (typeof el.value === "string") return el.value;
+  // contenteditable div 등
+  return (el.textContent || el.innerText || "").toString();
+}
+
+// B: 상품명 중복 제거 대상 input
+function getInputB(opts = {}) {
+  const silent = !!opts.silent;
+  const fallbackSelectors = [
+    config.inputBSelector,
+    // 컨테이너일 수 있는 경우
+    '[data-testid="product-name-input-container-common"]',
+    '[data-testid="product-name-input-container-common"] input, [data-testid="product-name-input-container-common"] textarea',
+    // 과거/대체 케이스: data-testid 기반
+    'input[data-testid="product-name-input"]',
+    // 과거/대체 케이스: sc selector 기반(사용자 설정/저장값이 예전일 수 있음)
+    'input.sc-fQffii.hkKAnT',
+  ].filter(Boolean);
+
+  for (const selector of fallbackSelectors) {
+    if (!selector) continue;
+    const el = document.querySelector(selector);
+    const resolved = resolveInputLikeElement(el);
+    if (resolved) {
+      if (!silent) {
+        console.log("[DupRemove] getInputB found:", {
+          selectorUsed: selector,
+          tagName: resolved.tagName,
+          isContentEditable: !!resolved.isContentEditable,
+        });
+      }
+      return resolved;
+    }
   }
+
+  if (!silent) {
+    const counts = fallbackSelectors.reduce((acc, selector) => {
+      try {
+        acc[selector] = document.querySelectorAll(selector).length;
+      } catch (e) {
+        acc[selector] = `invalid selector: ${e && e.message ? e.message : e}`;
+      }
+      return acc;
+    }, {});
+
+    console.warn("[DupRemove] getInputB not found:", {
+      inputBSelector: config.inputBSelector,
+      selectorCounts: counts,
+    });
+  }
+  return null;
+}
+
+// C: 쿠팡 상품명 입력 (과거에 여러 개가 있어 index 2를 쓰던 케이스를 보완)
+function getInputC() {
+  const candidateSelectors = [
+    config.inputCSelector,
+    // 컨테이너일 수 있는 경우
+    '[data-testid="product-name-input-container-쿠팡"]',
+    '[data-testid="product-name-input-container-쿠팡"] input, [data-testid="product-name-input-container-쿠팡"] textarea',
+    // 과거/대체 케이스: sc selector 기반
+    "input.sc-iafpwu.UboKk",
+    // 최후: 공통 data-testid input
+    'input[data-testid="product-name-input"]',
+  ].filter(Boolean);
+
+  for (const selector of candidateSelectors) {
+    if (!selector) continue;
+    const allMatches = [...document.querySelectorAll(selector)];
+    const inputs = allMatches.map(resolveInputLikeElement).filter(Boolean);
+    if (inputs.length === 0) continue;
+    const picked = inputs.length >= 3 ? inputs[2] : inputs[0];
+    console.log("[DupRemove] getInputC found:", {
+      selectorUsed: selector,
+      tagName: picked.tagName,
+      isContentEditable: !!picked.isContentEditable,
+    });
+    return picked;
+  }
+
+  const counts = candidateSelectors.reduce((acc, selector) => {
+    try {
+      acc[selector] = document.querySelectorAll(selector).length;
+    } catch (e) {
+      acc[selector] = `invalid selector: ${e && e.message ? e.message : e}`;
+    }
+    return acc;
+  }, {});
+
+  console.warn("[DupRemove] getInputC not found:", {
+    inputCSelector: config.inputCSelector,
+    selectorCounts: counts,
+  });
   return null;
 }
 
@@ -157,15 +269,18 @@ function autoBrandTag() {
   const C = getInputC();
 
   if (!A || !C) {
-    console.log("Input A or C not found");
+    console.log("Input A or C not found", {
+      inputCSelector: config.inputCSelector,
+    });
     return;
   }
 
   const categoryText = A.innerText;
 
   if (categoryText.includes("생활용품")) {
-      if (!C.value.startsWith("비브랜드")) {
-          setInputValue(C, "비브랜드 " + C.value);
+      const cText = getInputElementText(C);
+      if (!cText.startsWith("비브랜드")) {
+          setInputValue(C, "비브랜드 " + cText);
       }
   }
 }
@@ -216,11 +331,66 @@ function setInputValue(input, value) {
   // 현재 포커스 상태 저장
   const wasFocused = document.activeElement === input;
   
-  // React를 위한 실제 focus/blur 시뮬레이션
-  if (!wasFocused) {
-    input.focus();
+  // React onChange 감지는 value setter + input/change 이벤트로 처리하고,
+  // focus 자체는 주지 않아서(레이어 유발 방지) blur/escape로 정리한다.
+  function forceFocusAwayFrom(el) {
+    try {
+      // contenteditable이면 selection도 정리
+      if (el && el.isContentEditable) {
+        const sel = window.getSelection?.();
+        sel?.removeAllRanges?.();
+      }
+      el?.blur?.();
+      // focusout/blur를 직접 dispatch (일부 React UI는 이 이벤트만 보고 닫히기도 함)
+      try {
+        el?.dispatchEvent(
+          new FocusEvent("focusout", { bubbles: true, cancelable: true })
+        );
+        el?.dispatchEvent(
+          new FocusEvent("blur", { bubbles: true, cancelable: true })
+        );
+      } catch (e) {}
+    } catch (e) {}
+
+    // React 팝업/자동완성 같은 것들은 "외부 클릭"이나 "Escape"로 닫는 경우가 많다.
+    try {
+      setTimeout(() => {
+        try {
+          const body = document.body;
+          body?.dispatchEvent(
+            new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window })
+          );
+          body?.dispatchEvent(
+            new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
+          );
+          document.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true })
+          );
+        } catch (e) {}
+      }, 0);
+    } catch (e) {}
   }
   
+  // contenteditable 요소면 textContent로 값 설정
+  const isContentEditable =
+    !!input.isContentEditable ||
+    String(input.getAttribute?.("contenteditable") || "").toLowerCase() === "true";
+  if (isContentEditable) {
+    input.textContent = value;
+    const inputEvent = new InputEvent("input", {
+      bubbles: true,
+      cancelable: true,
+      data: value,
+      inputType: "insertText",
+    });
+    input.dispatchEvent(inputEvent);
+    input.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+
+    // blur 후 포커스를 input 밖으로 이동
+    forceFocusAwayFrom(input);
+    return true;
+  }
+
   // React나 다른 프레임워크를 위한 이벤트 발생
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
     window.HTMLInputElement.prototype, 
@@ -251,14 +421,7 @@ function setInputValue(input, value) {
   input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
   input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
   
-  // 실제 blur 호출 (React가 blur 이벤트를 감지하도록)
-  if (!wasFocused) {
-    input.blur();
-  } else {
-    // 이미 포커스가 있었다면 blur 이벤트만 발생
-    const blurEvent = new FocusEvent('blur', { bubbles: true, cancelable: true });
-    input.dispatchEvent(blurEvent);
-  }
+  // blur는 아래 forceFocusAwayFrom에서 통일 처리한다.
   
   // React의 onChange 핸들러를 직접 찾아서 호출 시도
   const reactInternalKey = Object.keys(input).find(key => 
@@ -296,7 +459,10 @@ function setInputValue(input, value) {
       }
     }
   }
-  
+
+  // blur 후 포커스를 input 밖으로 이동
+  forceFocusAwayFrom(input);
+
   return true;
 }
 
@@ -309,7 +475,9 @@ function delay(ms = 200) {
 async function runRemoveDuplicates(showMsg = true) {
   const B = getInputB();
   if (!B) {
-    console.log("Input B not found");
+    console.log("Input B not found", {
+      inputBSelector: config.inputBSelector,
+    });
     if (showMsg) showMessage("입력 필드를 찾을 수 없습니다");
     return;
   }
@@ -319,7 +487,7 @@ async function runRemoveDuplicates(showMsg = true) {
 
   while (iteration < DUP_REMOVE_MAX_ITER) {
     iteration++;
-    const originalValue = B.value;
+    const originalValue = getInputElementText(B);
     const newValue = removeDuplicateWords(originalValue);
 
     console.log(`[DupRemove][${iteration}] original:`, originalValue);
@@ -363,6 +531,8 @@ function runSelectMainImage(showMsg = true) {
 async function runAll() {
   // 중복제거 → 비브랜드태그 → 대표 썸네일 추천
   await runRemoveDuplicates(false);
+  // 중복제거로 인한 React 상태 반영 타이밍을 기다린다
+  await delay(350);
   autoBrandTag();
   runSelectMainImage(false);
   showMessage("실행했습니다");
@@ -400,6 +570,8 @@ async function runComplete(showMsg = true) {
 function createFloatingUI() {
   const box = document.createElement("div");
   box.id = "floatingToolBox";
+  // iframe/top frame 중 입력이 없는 프레임에서는 UI를 숨겨서 잘못된 프레임에서 버튼을 누르는 걸 방지
+  box.style.display = "none";
   box.innerHTML = `
       <button id="btnRemove">중복제거</button>
       <button id="btnBrand">비브랜드</button>
@@ -409,6 +581,23 @@ function createFloatingUI() {
       <button id="btnComplete">완료</button>
   `;
   document.body.appendChild(box);
+
+  // 입력이 렌더링되기까지 짧게 대기 후, 잡히는 프레임에서만 UI 표시
+  let attempts = 0;
+  const maxAttempts = 12; // 약 3.6초
+  const intervalMs = 300;
+  const timer = setInterval(() => {
+    attempts++;
+    if (getInputB({ silent: true })) {
+      box.style.display = "block";
+      clearInterval(timer);
+      return;
+    }
+    if (attempts >= maxAttempts) {
+      clearInterval(timer);
+      box.remove();
+    }
+  }, intervalMs);
 
   // 화면 경계 내에 위치 제한하는 함수
   function constrainPosition(x, y) {
