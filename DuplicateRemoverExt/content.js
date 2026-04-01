@@ -572,6 +572,117 @@ async function runComplete(showMsg = true) {
 }
 
 // ----------------------------
+// Floating quick options (비브랜드 건너뛰기 등)
+// ----------------------------
+let p2sFloatOptionsOutsideHandler = null;
+let p2sFloatOptionsEscapeHandler = null;
+
+function closeP2sFloatOptionsPanel(panel) {
+  if (!panel) return;
+  panel.style.display = "none";
+  if (p2sFloatOptionsOutsideHandler) {
+    document.removeEventListener("mousedown", p2sFloatOptionsOutsideHandler, true);
+    p2sFloatOptionsOutsideHandler = null;
+  }
+  if (p2sFloatOptionsEscapeHandler) {
+    document.removeEventListener("keydown", p2sFloatOptionsEscapeHandler, true);
+    p2sFloatOptionsEscapeHandler = null;
+  }
+}
+
+function positionP2sFloatOptionsPanel(panel, anchorEl) {
+  const margin = 8;
+  const r = anchorEl.getBoundingClientRect();
+  panel.style.visibility = "hidden";
+  panel.style.display = "block";
+  const w = panel.offsetWidth || 280;
+  let left = r.left;
+  let top = r.bottom + margin;
+  left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
+  const h = panel.offsetHeight || 1;
+  if (top + h > window.innerHeight - margin) {
+    top = Math.max(margin, r.top - h - margin);
+  }
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  panel.style.visibility = "visible";
+}
+
+function openP2sFloatOptionsPanel(panel, anchorBox) {
+  const defaults = globalThis.P2S_DEFAULTS;
+  const defSkip = defaults && defaults.skipBrandOnRunAll != null ? Boolean(defaults.skipBrandOnRunAll) : false;
+
+  chrome.storage.sync.get(["skipBrandOnRunAll"], (res) => {
+    const cb = panel.querySelector("#p2sSkipBrandOnRunAll");
+    if (cb) {
+      cb.checked =
+        res.skipBrandOnRunAll != null ? Boolean(res.skipBrandOnRunAll) : defSkip;
+    }
+
+    closeP2sFloatOptionsPanel(panel);
+    positionP2sFloatOptionsPanel(panel, anchorBox);
+
+    p2sFloatOptionsOutsideHandler = (e) => {
+      if (panel.contains(e.target) || anchorBox.contains(e.target)) return;
+      closeP2sFloatOptionsPanel(panel);
+    };
+    p2sFloatOptionsEscapeHandler = (e) => {
+      if (e.key === "Escape") closeP2sFloatOptionsPanel(panel);
+    };
+
+    setTimeout(() => {
+      document.addEventListener("mousedown", p2sFloatOptionsOutsideHandler, true);
+      document.addEventListener("keydown", p2sFloatOptionsEscapeHandler, true);
+    }, 0);
+  });
+}
+
+function createP2sFloatOptionsPanel() {
+  const panel = document.createElement("div");
+  panel.id = "p2sFloatOptionsPanel";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "빠른 설정");
+  panel.style.display = "none";
+  panel.innerHTML = `
+    <div class="p2s-float-options-title">빠른 설정</div>
+    <label class="p2s-float-options-row">
+      <input type="checkbox" id="p2sSkipBrandOnRunAll">
+      <span>전체 실행 시 비브랜드 태그 건너뛰기</span>
+    </label>
+    <div class="p2s-float-options-actions">
+      <button type="button" class="p2s-float-options-btn p2s-float-options-btn-primary" id="p2sFloatOptionsSave">저장</button>
+      <button type="button" class="p2s-float-options-btn" id="p2sFloatOptionsClose">닫기</button>
+    </div>
+    <button type="button" class="p2s-float-options-link" id="p2sOpenFullOptions">전체 옵션 페이지 열기…</button>
+  `;
+  document.body.appendChild(panel);
+
+  panel.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t.id === "p2sFloatOptionsSave") {
+      e.preventDefault();
+      e.stopPropagation();
+      const checked = Boolean(panel.querySelector("#p2sSkipBrandOnRunAll")?.checked);
+      chrome.storage.sync.set({ skipBrandOnRunAll: checked }, () => {
+        showMessage("저장했습니다");
+        closeP2sFloatOptionsPanel(panel);
+      });
+    } else if (t.id === "p2sFloatOptionsClose") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeP2sFloatOptionsPanel(panel);
+    } else if (t.id === "p2sOpenFullOptions") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeP2sFloatOptionsPanel(panel);
+      chrome.runtime.sendMessage({ type: "OPEN_OPTIONS_PAGE" });
+    }
+  });
+
+  return panel;
+}
+
+// ----------------------------
 // Floating UI
 // ----------------------------
 function createFloatingUI() {
@@ -587,9 +698,11 @@ function createFloatingUI() {
       <span class="float-pipe">|</span>
       <button id="btnComplete">완료</button>
       <span class="float-pipe">|</span>
-      <button type="button" id="btnSettings" title="설정" aria-label="설정">⚙</button>
+      <button type="button" id="btnSettings" title="빠른 설정" aria-label="빠른 설정">⚙</button>
   `;
   document.body.appendChild(box);
+
+  const optionsPanel = createP2sFloatOptionsPanel();
 
   // 입력이 렌더링되기까지 짧게 대기 후, 잡히는 프레임에서만 UI 표시
   let attempts = 0;
@@ -604,6 +717,8 @@ function createFloatingUI() {
     }
     if (attempts >= maxAttempts) {
       clearInterval(timer);
+      closeP2sFloatOptionsPanel(optionsPanel);
+      optionsPanel.remove();
       box.remove();
     }
   }, intervalMs);
@@ -743,7 +858,11 @@ function createFloatingUI() {
       } else if (btnId === "btnAll") {
           runAll();
       } else if (btnId === "btnSettings") {
-          chrome.runtime.sendMessage({ type: "OPEN_OPTIONS_PAGE" });
+          if (optionsPanel.style.display === "block") {
+            closeP2sFloatOptionsPanel(optionsPanel);
+          } else {
+            openP2sFloatOptionsPanel(optionsPanel, box);
+          }
       } else if (btnId === "btnComplete") {
           runComplete();
       }
