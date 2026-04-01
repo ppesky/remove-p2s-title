@@ -22,6 +22,29 @@
   font-size: 12px;
 }
 
+#floatingToolBox #btnSettings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  min-width: 0;
+  font-size: 18px;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+#floatingToolBox #btnSettings:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+}
+
+#floatingToolBox #btnSettings:focus-visible {
+  outline: 2px solid #666;
+  outline-offset: 2px;
+}
+
 #floatingToolBox .float-pipe {
   display: inline-flex;
   align-items: center;

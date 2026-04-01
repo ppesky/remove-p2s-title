@@ -7,5 +7,6 @@ globalThis.P2S_DEFAULTS = {
   inputCSelector: 'input[data-testid="product-name-input-container-쿠팡"]',
   completeDelayMs: 400,
   backBtnSelector: "button.sc-jgFdch.evvnFR",
+  skipBrandOnRunAll: false,
 };
 

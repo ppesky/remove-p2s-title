@@ -2,6 +2,17 @@ importScripts(chrome.runtime.getURL("defaults.js"));
 
 const DEFAULTS = globalThis.P2S_DEFAULTS;
 
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === "OPEN_OPTIONS_PAGE") {
+    chrome.runtime.openOptionsPage(() => {
+      const err = chrome.runtime.lastError;
+      if (err) {
+        console.error("[P2S] openOptionsPage:", err.message);
+      }
+    });
+  }
+});
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.sync.get(
     ["urlPatterns", "dictionary", "inputBSelector", "inputCSelector", "completeDelayMs", "backBtnSelector"],

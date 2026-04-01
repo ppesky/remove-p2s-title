@@ -529,11 +529,18 @@ function runSelectMainImage(showMsg = true) {
 }
 
 async function runAll() {
-  // 중복제거 → 비브랜드태그 → 대표 썸네일 추천
+  // 중복제거 → (옵션) 비브랜드태그 → 대표 썸네일 추천
   await runRemoveDuplicates(false);
   // 중복제거로 인한 React 상태 반영 타이밍을 기다린다
   await delay(350);
-  autoBrandTag();
+  const skipBrand = await new Promise((resolve) => {
+    chrome.storage.sync.get(["skipBrandOnRunAll"], (res) => {
+      resolve(Boolean(res.skipBrandOnRunAll));
+    });
+  });
+  if (!skipBrand) {
+    autoBrandTag();
+  }
   runSelectMainImage(false);
   showMessage("실행했습니다");
 }
@@ -574,11 +581,13 @@ function createFloatingUI() {
   box.style.display = "none";
   box.innerHTML = `
       <button id="btnRemove">중복제거</button>
-      <button id="btnBrand">비브랜드</button>
       <button id="btnThumb">대표썸</button>
+      <button id="btnBrand">비브랜드</button>
       <button id="btnAll">전체</button>
       <span class="float-pipe">|</span>
       <button id="btnComplete">완료</button>
+      <span class="float-pipe">|</span>
+      <button type="button" id="btnSettings" title="설정" aria-label="설정">⚙</button>
   `;
   document.body.appendChild(box);
 
@@ -733,6 +742,8 @@ function createFloatingUI() {
           runSelectMainImage();
       } else if (btnId === "btnAll") {
           runAll();
+      } else if (btnId === "btnSettings") {
+          chrome.runtime.sendMessage({ type: "OPEN_OPTIONS_PAGE" });
       } else if (btnId === "btnComplete") {
           runComplete();
       }

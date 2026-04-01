@@ -6,7 +6,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   chrome.storage.sync.get(
-    ["urlPatterns", "dictionary", "inputBSelector", "inputCSelector", "completeDelayMs", "backBtnSelector"],
+    [
+      "urlPatterns",
+      "dictionary",
+      "inputBSelector",
+      "inputCSelector",
+      "completeDelayMs",
+      "backBtnSelector",
+      "skipBrandOnRunAll",
+    ],
     (res) => {
       document.getElementById("urlPatterns").value =
         (res.urlPatterns || DEFAULTS.urlPatterns).join("\n");
@@ -27,6 +35,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const backBtnInput = document.getElementById("backBtnSelector");
       if (backBtnInput) {
         backBtnInput.value = res.backBtnSelector || DEFAULTS.backBtnSelector;
+      }
+
+      const skipBrandEl = document.getElementById("skipBrandOnRunAll");
+      if (skipBrandEl) {
+        skipBrandEl.checked =
+          res.skipBrandOnRunAll != null
+            ? Boolean(res.skipBrandOnRunAll)
+            : DEFAULTS.skipBrandOnRunAll;
       }
     }
   );
@@ -66,8 +82,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const safeUrlPatterns =
       urlPatterns.length > 0 ? urlPatterns : DEFAULTS.urlPatterns;
 
+    const skipBrandOnRunAll = Boolean(
+      document.getElementById("skipBrandOnRunAll")?.checked
+    );
+
     chrome.storage.sync.set(
-      { urlPatterns: safeUrlPatterns, dictionary, inputBSelector, inputCSelector, completeDelayMs, backBtnSelector },
+      {
+        urlPatterns: safeUrlPatterns,
+        dictionary,
+        inputBSelector,
+        inputCSelector,
+        completeDelayMs,
+        backBtnSelector,
+        skipBrandOnRunAll,
+      },
       () => {
         alert("저장되었습니다.");
       }
