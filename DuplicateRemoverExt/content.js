@@ -686,10 +686,16 @@ function createP2sFloatOptionsPanel() {
 // Floating UI
 // ----------------------------
 function createFloatingUI() {
+  // 최상위 프레임에서만 UI를 렌더링한다.
+  // (iframe에서 중복 렌더링되는 문제를 방지)
+  if (window !== window.top) return;
+
+  // 이미 생성되어 있으면 중복 생성하지 않는다.
+  if (document.getElementById("floatingToolBox")) return;
+
   const box = document.createElement("div");
   box.id = "floatingToolBox";
-  // iframe/top frame 중 입력이 없는 프레임에서는 UI를 숨겨서 잘못된 프레임에서 버튼을 누르는 걸 방지
-  box.style.display = "none";
+  box.style.display = "block";
   box.innerHTML = `
       <button id="btnRemove">중복제거</button>
       <button id="btnThumb">대표썸</button>
@@ -703,25 +709,6 @@ function createFloatingUI() {
   document.body.appendChild(box);
 
   const optionsPanel = createP2sFloatOptionsPanel();
-
-  // 입력이 렌더링되기까지 짧게 대기 후, 잡히는 프레임에서만 UI 표시
-  let attempts = 0;
-  const maxAttempts = 12; // 약 3.6초
-  const intervalMs = 300;
-  const timer = setInterval(() => {
-    attempts++;
-    if (getInputB({ silent: true })) {
-      box.style.display = "block";
-      clearInterval(timer);
-      return;
-    }
-    if (attempts >= maxAttempts) {
-      clearInterval(timer);
-      closeP2sFloatOptionsPanel(optionsPanel);
-      optionsPanel.remove();
-      box.remove();
-    }
-  }, intervalMs);
 
   // 화면 경계 내에 위치 제한하는 함수
   function constrainPosition(x, y) {
